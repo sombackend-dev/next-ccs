@@ -38,3 +38,24 @@
 - `@RestController`는 HTTP 요청을 처리하는 컨트롤러임을 Spring에 알려준다.
 - `@GetMapping("/hello")`는 `/hello` 경로의 GET 요청을 메서드와 연결한다.
 - Spring Boot가 정상 실행되면 내장 Tomcat 서버가 8080 포트에서 요청을 받는다.
+
+## 2026-08-19
+## Vehicle 등록 API 구현
+
+### 작업
+- Vehicle Entity 및 VehicleStatus enum 구현
+- VehicleRepository 구현
+- VehicleService 구현
+- VehicleCreateRequest DTO 구현
+- POST /vehicles API 구현
+- Spring Boot와 MySQL 연결
+- Postman을 이용한 차량 등록 테스트
+- MySQL에서 실제 INSERT 결과 확인
+
+### 학습
+- Controller → Service → Repository → DB 흐름
+- Spring Bean과 생성자 기반 DI
+- JPA Entity와 Repository의 역할
+- DTO와 Entity의 차이
+- enum을 이용한 상태값 제한
+- @RequestBody를 통한 JSON → Java 객체 변환
