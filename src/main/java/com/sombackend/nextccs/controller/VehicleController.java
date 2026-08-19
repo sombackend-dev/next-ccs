@@ -3,10 +3,7 @@ package com.sombackend.nextccs.controller;
 import com.sombackend.nextccs.dto.VehicleCreateRequest;
 import com.sombackend.nextccs.entity.Vehicle;
 import com.sombackend.nextccs.service.VehicleService;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/vehicles")
@@ -27,5 +24,10 @@ public class VehicleController {
         );
 
         return vehicleService.save(vehicle);
+    }
+
+    @GetMapping("/{id}")
+    public Vehicle findById(@PathVariable Long id){
+        return vehicleService.findById(id);
     }
 }

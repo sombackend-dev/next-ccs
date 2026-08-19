@@ -16,4 +16,11 @@ public class VehicleService {
     public Vehicle save(Vehicle vehicle) {
         return vehicleRepository.save(vehicle);
     }
+
+    public Vehicle findById(Long id) {
+        return vehicleRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 차량입니다."));
+    }
+
+
 }

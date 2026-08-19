@@ -59,3 +59,18 @@
 - DTO와 Entity의 차이
 - enum을 이용한 상태값 제한
 - @RequestBody를 통한 JSON → Java 객체 변환
+
+## 차량 단건 조회 및 예외 처리
+
+### 작업 내용
+- `GET /vehicles/{id}` 차량 단건 조회 API 구현
+- `JpaRepository.findById()`를 이용한 차량 조회
+- 존재하지 않는 차량 조회 시 예외 발생 처리
+- `GlobalExceptionHandler` 구현
+- 존재하지 않는 차량에 대해 HTTP 404 응답 반환
+- Postman에서 정상 조회(200) / 존재하지 않는 차량 조회(404) 테스트 완료
+
+### 테스트
+- `GET /vehicles/1` → 차량 정보 정상 반환
+- `GET /vehicles/100` → 404 Not Found
+- `"존재하지 않는 차량입니다."` 메시지 반환 확인
