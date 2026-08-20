@@ -74,3 +74,25 @@
 - `GET /vehicles/1` → 차량 정보 정상 반환
 - `GET /vehicles/100` → 404 Not Found
 - `"존재하지 않는 차량입니다."` 메시지 반환 확인
+
+## 차량 전체 조회 API
+
+### 작업 내용
+- `GET /vehicles` 차량 전체 조회 API 구현
+- `JpaRepository.findAll()`을 이용한 전체 차량 조회
+- Postman을 통한 API 동작 확인
+
+### 학습
+- `List<Vehicle>`을 이용한 복수 Entity 반환
+- Java List가 JSON 배열(`[]`) 형태로 응답되는 것을 확인
+
+## 응답 DTO 분리
+
+### 작업 내용
+- VehicleResponse DTO 구현
+- 차량 등록, 단건 조회, 전체 조회 응답을 Entity 직접 반환 방식에서 DTO 반환 방식으로 변경
+- Postman으로 POST /vehicles, GET /vehicles/{id}, GET /vehicles 정상 동작 확인
+
+### 학습
+- Entity와 API Response DTO의 역할 분리
+- Stream, map, lambda, toList를 이용한 List 변환

@@ -1,9 +1,12 @@
 package com.sombackend.nextccs.controller;
 
 import com.sombackend.nextccs.dto.VehicleCreateRequest;
+import com.sombackend.nextccs.dto.VehicleResponse;
 import com.sombackend.nextccs.entity.Vehicle;
 import com.sombackend.nextccs.service.VehicleService;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/vehicles")
@@ -16,18 +19,43 @@ public class VehicleController {
     }
 
     @PostMapping
-    public Vehicle create(@RequestBody VehicleCreateRequest request) {
+    public VehicleResponse create(@RequestBody VehicleCreateRequest request) {
 
         Vehicle vehicle = new Vehicle(
                 request.getVehicleNumber(),
                 request.getModelName()
         );
 
-        return vehicleService.save(vehicle);
+        Vehicle savedVehicle = vehicleService.save(vehicle);
+
+        return new VehicleResponse(
+                savedVehicle.getId(),
+                savedVehicle.getVehicleNumber(),
+                savedVehicle.getModelName(),
+                savedVehicle.getStatus());
     }
 
     @GetMapping("/{id}")
-    public Vehicle findById(@PathVariable Long id){
-        return vehicleService.findById(id);
+    public VehicleResponse findById(@PathVariable Long id){
+        Vehicle vehicle = vehicleService.findById(id);
+
+        return new VehicleResponse(
+                vehicle.getId(),
+                vehicle.getVehicleNumber(),
+                vehicle.getModelName(),
+                vehicle.getStatus()
+        );
+    }
+
+    @GetMapping
+    public List<VehicleResponse> findAll(){
+        return vehicleService.findAll().stream()
+                .map(vehicle -> new VehicleResponse(
+                        vehicle.getId(),
+                vehicle.getVehicleNumber(),
+                vehicle.getModelName(),
+                vehicle.getStatus()
+        )).toList();
+
     }
 }
