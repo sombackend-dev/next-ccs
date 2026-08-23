@@ -96,3 +96,21 @@
 ### 학습
 - Entity와 API Response DTO의 역할 분리
 - Stream, map, lambda, toList를 이용한 List 변환
+
+
+## 차량번호 중복 방지 및 DB 제약조건 적용
+
+### 작업 내용
+- `VehicleRepository`에 `existsByVehicleNumber()` 추가
+- 차량 등록 시 동일 차량번호 사전 검증 로직 구현
+- `DuplicateVehicleNumberException` 커스텀 예외 적용
+- 중복 차량번호 요청에 대해 HTTP 409 Conflict 반환
+- `vehicle_number` 컬럼에 DB UNIQUE 제약조건 추가
+- `vehicle_number`, `model_name`에 NOT NULL 제약조건 적용
+- `DataIntegrityViolationException` 예외 처리 추가
+- Postman에서 차량번호 중복 요청 테스트 완료
+
+### 테스트
+- 기존 차량번호로 `POST /vehicles` 요청
+- `409 Conflict` 응답 확인
+- `"이미 등록된 차량번호입니다."` 메시지 확인
