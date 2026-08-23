@@ -114,3 +114,18 @@
 - 기존 차량번호로 `POST /vehicles` 요청
 - `409 Conflict` 응답 확인
 - `"이미 등록된 차량번호입니다."` 메시지 확인
+
+## 차량 상태 변경 API 구현
+
+### 작업 내용
+- `VehicleStatusUpdateRequest` DTO 구현
+- `PATCH /vehicles/{id}/status` API 구현
+- `Vehicle.changeStatus()` 상태 변경 메서드 추가
+- Service에 차량 상태 변경 로직 구현
+- `@Transactional` 적용
+- JPA Dirty Checking을 이용하도록 불필요한 `save()` 호출 제거
+
+### 테스트
+- Postman에서 차량 상태 `MAINTENANCE`, `RESERVED` 변경 확인
+- MySQL에서 실제 `vehicle.status` 변경 확인
+- `vehicleRepository.save()` 없이도 변경 감지를 통해 DB UPDATE가 수행되는 것 확인

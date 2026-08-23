@@ -2,6 +2,7 @@ package com.sombackend.nextccs.controller;
 
 import com.sombackend.nextccs.dto.VehicleCreateRequest;
 import com.sombackend.nextccs.dto.VehicleResponse;
+import com.sombackend.nextccs.dto.VehicleStatusUpdateRequest;
 import com.sombackend.nextccs.entity.Vehicle;
 import com.sombackend.nextccs.service.VehicleService;
 import org.springframework.web.bind.annotation.*;
@@ -58,4 +59,21 @@ public class VehicleController {
         )).toList();
 
     }
+
+
+    @PatchMapping("/{id}/status")
+    public VehicleResponse updateStatus(
+            @PathVariable Long id,
+            @RequestBody VehicleStatusUpdateRequest request
+    ) {
+        Vehicle vehicle = vehicleService.updateStatus(id, request.getStatus());
+
+        return new VehicleResponse(
+                vehicle.getId(),
+                vehicle.getVehicleNumber(),
+                vehicle.getModelName(),
+                vehicle.getStatus()
+        );
+    }
+
 }
