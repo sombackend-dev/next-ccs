@@ -265,3 +265,240 @@ GlobalExceptionHandler
 ## 한 줄 복습
 
 **findById()는 값이 없을 가능성이 있어서 Optional을 반환하고, 값이 없으면 예외를 발생시킨 뒤 GlobalExceptionHandler가 그 예외를 적절한 HTTP 응답으로 변환한다.**
+
+## Spring Data JPA Query Method 주요 키워드
+
+Spring Data JPA는 Repository의 메서드 이름을 분석하여 필요한 쿼리를 자동으로 생성할 수 있다.
+
+예를 들어:
+
+```java
+boolean existsByVehicleNumber(String vehicleNumber);
+```
+
+는 다음과 같이 해석된다.
+
+```text
+exists
+→ 조건을 만족하는 데이터가 존재하는지 확인
+
+By
+→ 여기부터 조회 조건
+
+VehicleNumber
+→ Entity의 vehicleNumber 필드
+```
+
+---
+
+### 자주 사용하는 키워드
+
+| 키워드 | 의미 | 예시 |
+|---|---|---|
+| `findBy` | 조건에 맞는 데이터 조회 | `findByStatus(...)` |
+| `existsBy` | 조건에 맞는 데이터 존재 여부 확인 | `existsByVehicleNumber(...)` |
+| `countBy` | 조건에 맞는 데이터 개수 | `countByStatus(...)` |
+| `And` | 두 조건을 모두 만족 | `findByStatusAndModelName(...)` |
+| `Or` | 두 조건 중 하나 이상 만족 | `findByStatusOrModelName(...)` |
+| `LessThan` | `<` | `findByStartTimeLessThan(...)` |
+| `LessThanEqual` | `<=` | `findByStartTimeLessThanEqual(...)` |
+| `GreaterThan` | `>` | `findByEndTimeGreaterThan(...)` |
+| `GreaterThanEqual` | `>=` | `findByEndTimeGreaterThanEqual(...)` |
+| `Between` | 두 값 사이 | `findByStartTimeBetween(...)` |
+| `Before` | 특정 시간보다 이전 | `findByStartTimeBefore(...)` |
+| `After` | 특정 시간보다 이후 | `findByStartTimeAfter(...)` |
+| `Containing` | 문자열에 특정 내용 포함 | `findByModelNameContaining(...)` |
+| `IsNull` | 값이 `NULL`인지 확인 | `findByEndTimeIsNull()` |
+| `IsNotNull` | 값이 `NULL`이 아닌지 확인 | `findByEndTimeIsNotNull()` |
+| `OrderBy` | 결과 정렬 | `findByStatusOrderByStartTimeAsc(...)` |
+
+---
+
+## 긴 Query Method 읽는 방법
+
+다음 메서드를 예로 들어보자.
+
+```java
+boolean existsByVehicleAndStartTimeLessThanAndEndTimeGreaterThan(
+        Vehicle vehicle,
+        LocalDateTime endTime,
+        LocalDateTime startTime
+);
+```
+
+메서드 이름 전체를 한 번에 읽지 않고 **필드와 연산자 단위로 끊어서 읽는다.**
+
+```text
+exists
+
+By
+
+Vehicle
+
+And
+
+StartTime + LessThan
+
+And
+
+EndTime + GreaterThan
+```
+
+각 부분을 해석하면 다음과 같다.
+
+```text
+exists
+→ 존재하는가?
+
+By
+→ 다음 조건으로
+
+Vehicle
+→ 같은 Vehicle이고
+
+StartTimeLessThan
+→ 기존 예약의 startTime이 주어진 값보다 작고
+
+EndTimeGreaterThan
+→ 기존 예약의 endTime이 주어진 값보다 큰 데이터
+```
+
+---
+
+## 예약 시간 중복 검사
+
+예약 시간이 겹치는지 확인하기 위해 다음 조건을 사용한다.
+
+```text
+기존 예약 startTime < 새 예약 endTime
+
+AND
+
+기존 예약 endTime > 새 예약 startTime
+```
+
+예를 들어:
+
+```text
+기존 예약
+10:00 ├────────────┤ 12:00
+
+새 예약
+       11:00 ├────────────┤ 13:00
+```
+
+조건을 계산하면:
+
+```text
+10:00 < 13:00
+→ true
+
+12:00 > 11:00
+→ true
+```
+
+따라서:
+
+```text
+true AND true
+→ true
+→ 겹치는 예약이 존재함
+```
+
+---
+
+## 매개변수 순서가 중요한 이유
+
+Spring Data JPA는 **메서드 이름에 등장하는 조건의 순서대로 매개변수를 대응시킨다.**
+
+```java
+existsByVehicleAndStartTimeLessThanAndEndTimeGreaterThan(
+        Vehicle vehicle,
+        LocalDateTime endTime,
+        LocalDateTime startTime
+)
+```
+
+조건과 매개변수를 대응시키면:
+
+```text
+Vehicle
+→ vehicle
+
+StartTime LessThan
+→ endTime
+
+EndTime GreaterThan
+→ startTime
+```
+
+따라서 실제 조건은:
+
+```text
+기존 Vehicle = vehicle
+
+기존 startTime < 새 endTime
+
+기존 endTime > 새 startTime
+```
+
+이 된다.
+
+그래서 Repository를 호출할 때도 다음 순서를 사용한다.
+
+```java
+reservationRepository
+        .existsByVehicleAndStartTimeLessThanAndEndTimeGreaterThan(
+                vehicle,
+                endTime,
+                startTime
+        );
+```
+
+`startTime`과 `endTime`이라는 변수 이름의 순서가 아니라 **Query Method의 조건이 등장하는 순서**가 기준이라는 점에 주의한다.
+
+---
+
+## Query Method 읽는 요령
+
+긴 메서드를 통째로 외우지 않는다.
+
+예를 들어:
+
+```text
+existsByVehicleAndStartTimeLessThanAndEndTimeGreaterThan
+```
+
+을 보면 다음처럼 분해한다.
+
+```text
+exists
+│
+└─ 결과는 존재 여부(boolean)
+
+By
+│
+└─ 여기부터 조건
+
+Vehicle
+│
+└─ Entity 필드
+
+And
+│
+└─ 그리고
+
+StartTime + LessThan
+│
+└─ Entity 필드 + 비교 연산자
+
+And
+
+EndTime + GreaterThan
+│
+└─ Entity 필드 + 비교 연산자
+```
+
+### 한 줄 복습
+
+**Spring Data JPA의 Query Method는 `조회 방식 + By + Entity 필드 + 조건 연산자`로 끊어서 읽는다.**

@@ -55,4 +55,32 @@ public class GlobalExceptionHandler {
 
     }
 
+    @ExceptionHandler(InvalidReservationTimeException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidReservationTimeException(
+            InvalidReservationTimeException e) {
+
+        Map<String, Object> body = Map.of(
+                "status", HttpStatus.BAD_REQUEST.value(),
+                "message", e.getMessage()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(body);
+    }
+
+    @ExceptionHandler(ReservationConflictException.class)
+    public ResponseEntity<Map<String, Object>> handleReservationConflictException(
+            ReservationConflictException e) {
+
+        Map<String, Object> body = Map.of(
+                "status", HttpStatus.CONFLICT.value(),
+                "message", e.getMessage()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(body);
+    }
+
 }

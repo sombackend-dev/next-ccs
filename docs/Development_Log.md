@@ -129,3 +129,21 @@
 - Postman에서 차량 상태 `MAINTENANCE`, `RESERVED` 변경 확인
 - MySQL에서 실제 `vehicle.status` 변경 확인
 - `vehicleRepository.save()` 없이도 변경 감지를 통해 DB UPDATE가 수행되는 것 확인
+
+
+## 예약 생성 및 시간 중복 검증 구현
+
+### 작업 내용
+- `Reservation`, `ReservationStatus` 구현
+- Vehicle-Reservation `@ManyToOne` 연관관계 구성
+- 예약 생성 Request/Response DTO 구현
+- `POST /reservations` API 구현
+- 예약 시작/종료 시간 유효성 검증
+- Spring Data JPA Query Method를 이용한 동일 차량 예약 시간 중복 검사
+- `InvalidReservationTimeException`, `ReservationConflictException` 구현
+- 예약 예외에 대한 HTTP 400/409 응답 처리
+
+### 테스트
+- 정상 예약 생성 확인
+- 기존 예약과 겹치는 `11:00~13:00` 요청 → `409 Conflict` 확인
+- 기존 예약 종료 시점과 맞닿는 `12:00~14:00` 요청 → 정상 생성 확인
