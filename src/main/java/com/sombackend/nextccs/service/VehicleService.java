@@ -45,7 +45,12 @@ public class VehicleService {
         return vehicle;
     }
 
-
+    public Vehicle findByIdForUpdate(Long id) {
+        return vehicleRepository.findByIdForUpdate(id)
+                .orElseThrow(() ->
+                        new VehicleNotFoundException("차량을 찾을 수 없습니다.")
+                );
+    }
 
 
 }

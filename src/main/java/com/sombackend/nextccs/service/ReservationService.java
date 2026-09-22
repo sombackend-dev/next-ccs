@@ -6,6 +6,7 @@ import com.sombackend.nextccs.exception.InvalidReservationTimeException;
 import com.sombackend.nextccs.exception.ReservationConflictException;
 import com.sombackend.nextccs.repository.ReservationRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ReservationService {
@@ -21,6 +22,7 @@ public class ReservationService {
         this.vehicleService = vehicleService;
     }
 
+    @Transactional
     public Reservation create(
             Long vehicleId,
             java.time.LocalDateTime startTime,
@@ -31,7 +33,7 @@ public class ReservationService {
                     "예약 시작 시간은 종료 시간보다 빨라야 합니다."
                     );
         }
-        Vehicle vehicle = vehicleService.findById(vehicleId);
+        Vehicle vehicle = vehicleService.findByIdForUpdate(vehicleId);
 
         boolean exists = reservationRepository
                 .existsByVehicleAndStartTimeLessThanAndEndTimeGreaterThan(
@@ -43,6 +45,7 @@ public class ReservationService {
                     "해당 시간에 이미 예약된 차량입니다."
             );
         }
+
 
 
         Reservation reservation = new Reservation(

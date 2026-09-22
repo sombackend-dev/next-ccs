@@ -147,3 +147,190 @@
 - 정상 예약 생성 확인
 - 기존 예약과 겹치는 `11:00~13:00` 요청 → `409 Conflict` 확인
 - 기존 예약 종료 시점과 맞닿는 `12:00~14:00` 요청 → 정상 생성 확인
+
+
+---
+
+---
+
+## 예약 동시성 문제 재현 및 비관적 락 적용
+
+### 문제 발견
+
+예약 생성 시 기존 예약과 시간이 겹치는지 확인하는 로직을 구현했지만,
+동일 차량에 여러 예약 요청이 동시에 들어오는 경우 두 요청이 모두
+중복 검사를 통과할 수 있는 Race Condition 가능성을 확인했다.
+
+### 동시성 문제 재현
+
+중복 검사와 예약 저장 사이에 임시 지연을 추가하고,
+PowerShell을 이용해 동일 차량과 동일 시간대의 예약 요청 2건을
+거의 동시에 전송했다.
+
+Lock 적용 전 결과:
+
+```text
+Request A → id 8 / RESERVED
+Request B → id 9 / RESERVED
+```
+
+두 요청이 모두 성공하면서 실제로 중복 예약이 발생했다.
+
+### 원인 분석
+
+`@Transactional`은 예약 조회와 저장을 하나의 작업 단위로 묶을 수 있지만,
+그 자체만으로 다른 트랜잭션의 동시 접근을 차단하지 않는다.
+
+또한 예약 생성은 기존 Reservation을 수정하는 것이 아니라
+새로운 Reservation을 각각 INSERT하는 구조이므로,
+단순히 Reservation에 `@Version`을 추가하는 방식으로는
+두 INSERT 사이의 충돌을 감지할 수 없다.
+
+Vehicle에 `@Version`을 추가하는 낙관적 락도 검토했지만,
+현재 예약 생성 과정에서는 Vehicle 자체를 수정하지 않기 때문에
+단순한 version 추가만으로는 충돌을 감지할 수 없다.
+
+### 낙관적 락과 비관적 락 비교
+
+낙관적 락은 데이터를 미리 잠그지 않고,
+수정 시 version을 비교하여 다른 트랜잭션의 변경 여부를 확인한다.
+
+충돌이 적은 환경에서는 높은 동시성을 확보할 수 있지만,
+현재 예약 생성 구조에서는 새로운 Reservation들이 각각 INSERT되기 때문에
+단순한 version 기반 충돌 감지가 적합하지 않았다.
+
+비관적 락은 충돌 가능성이 있는 데이터에 먼저 Lock을 획득하고,
+트랜잭션이 종료될 때까지 경쟁하는 접근을 제어한다.
+
+현재 예약에서는 모든 요청이 공통으로 접근하는 Vehicle을
+경쟁 자원으로 사용할 수 있기 때문에 비관적 락을 선택했다.
+
+### 해결
+
+일반적인 Vehicle 조회와 예약용 Vehicle 조회를 분리했다.
+
+일반 조회에서는 기존 `findById()`를 사용하고,
+예약 생성 과정에서만 `PESSIMISTIC_WRITE` Lock을 획득하는
+별도의 조회 메서드를 추가했다.
+
+```java
+@Lock(LockModeType.PESSIMISTIC_WRITE)
+@Query("select v from Vehicle v where v.id = :id")
+Optional<Vehicle> findByIdForUpdate(@Param("id") Long id);
+```
+
+VehicleService에도 예약 처리에서 사용할 조회 메서드를 추가했다.
+
+```java
+public Vehicle findByIdForUpdate(Long id) {
+    return vehicleRepository.findByIdForUpdate(id)
+            .orElseThrow(() ->
+                    new VehicleNotFoundException(
+                            "차량을 찾을 수 없습니다."
+                    )
+            );
+}
+```
+
+ReservationService의 예약 생성 과정에서는
+일반 조회 대신 `findByIdForUpdate()`를 사용하도록 변경했다.
+
+또한 예약 생성 전체 과정에 `@Transactional`을 적용했다.
+
+```java
+@Transactional
+public Reservation create(
+        Long vehicleId,
+        LocalDateTime startTime,
+        LocalDateTime endTime
+) {
+
+    Vehicle vehicle =
+            vehicleService.findByIdForUpdate(vehicleId);
+
+    boolean exists = reservationRepository
+            .existsByVehicleAndStartTimeLessThanAndEndTimeGreaterThan(
+                    vehicle,
+                    endTime,
+                    startTime
+            );
+
+    if (exists) {
+        throw new ReservationConflictException(
+                "해당 시간에 이미 예약된 차량입니다."
+        );
+    }
+
+    Reservation reservation =
+            new Reservation(vehicle, startTime, endTime);
+
+    return reservationRepository.save(reservation);
+}
+```
+
+전체 처리 흐름은 다음과 같다.
+
+```text
+Transaction 시작
+        ↓
+Vehicle 조회 + PESSIMISTIC_WRITE Lock 획득
+        ↓
+중복 예약 검사
+        ↓
+Reservation INSERT
+        ↓
+COMMIT
+        ↓
+Vehicle Lock 해제
+```
+
+첫 번째 요청이 특정 Vehicle의 Lock을 가지고 있는 동안
+동일 Vehicle의 Lock을 필요로 하는 두 번째 예약 요청은 대기한다.
+
+첫 번째 요청이 예약을 저장하고 COMMIT한 이후
+두 번째 요청이 진행되므로,
+두 번째 요청의 중복 예약 검사에서는 첫 번째 예약을 확인할 수 있다.
+
+### Lock 적용 후 검증
+
+Lock 적용 전과 동일하게 PowerShell 두 개를 사용하여
+동일 차량과 동일 시간대의 예약 요청 2건을 거의 동시에 전송했다.
+
+결과:
+
+```text
+Request A → id 10 / RESERVED
+Request B → 409 Conflict
+```
+
+Lock 적용 전에는 두 요청이 모두 성공했지만,
+적용 후에는 하나의 요청만 예약 생성에 성공했다.
+
+두 번째 요청은 첫 번째 트랜잭션이 완료된 후 중복 예약을 발견하여
+`ReservationConflictException`이 발생했고
+HTTP 409 Conflict 응답을 반환했다.
+
+따라서 동일 차량에 대한 동시 예약 요청에서도
+유효한 예약이 1건만 생성되는 것을 확인했다.
+
+### 실험 코드 정리
+
+Race Condition을 쉽게 재현하기 위해 임시로 사용했던
+
+```java
+Thread.sleep(3000);
+```
+
+코드는 검증 완료 후 제거했다.
+
+### 결과
+
+- 동일 차량에 대한 Race Condition 직접 재현
+- Lock 적용 전 실제 중복 예약 2건 생성 확인
+- `@Transactional`만으로 동시성 문제가 해결되지 않는 이유 확인
+- Optimistic Lock과 Pessimistic Lock의 동작 방식 및 트레이드오프 비교
+- 예약 생성 구조에서 Vehicle을 경쟁 자원으로 선정
+- 예약 생성 경로에 `PESSIMISTIC_WRITE` 적용
+- 일반 Vehicle 조회와 예약용 Lock 조회 분리
+- 동일 조건 재테스트에서 예약 1건만 생성되는 것을 확인
+- 동시성 실험을 위한 임시 지연 코드 제거
