@@ -1,9 +1,11 @@
 package com.sombackend.nextccs.repository;
 
 import com.sombackend.nextccs.entity.Reservation;
-import org.springframework.data.jpa.repository.JpaRepository;
 import com.sombackend.nextccs.entity.Vehicle;
+import org.springframework.data.jpa.repository.JpaRepository;
+
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
 
@@ -11,5 +13,11 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             Vehicle vehicle,
             LocalDateTime endTime,
             LocalDateTime startTime
+    );
+
+    List<Reservation> findByVehicleIdAndStartTimeBetween(
+            Long vehicleId,
+            LocalDateTime startTime,
+            LocalDateTime endTime
     );
 }

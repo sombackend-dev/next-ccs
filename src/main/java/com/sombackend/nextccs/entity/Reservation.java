@@ -4,6 +4,15 @@ import java.time.LocalDateTime;
 
 
 @Entity
+@Table(
+        name = "reservation",
+        indexes = {
+                @Index(
+                        name = "idx_reservation_vehicle_start_time",
+                        columnList = "vehicle_id, start_time"
+                )
+        }
+)
 public class Reservation {
 
     @Id@GeneratedValue(strategy = GenerationType.IDENTITY)
