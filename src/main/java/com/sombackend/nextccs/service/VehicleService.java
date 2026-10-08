@@ -5,10 +5,10 @@ import com.sombackend.nextccs.entity.VehicleStatus;
 import com.sombackend.nextccs.exception.DuplicateVehicleNumberException;
 import com.sombackend.nextccs.exception.VehicleNotFoundException;
 import com.sombackend.nextccs.repository.VehicleRepository;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class VehicleService {
@@ -20,9 +20,8 @@ public class VehicleService {
     }
 
     public Vehicle save(Vehicle vehicle) {
-
-        if(vehicleRepository.existsByVehicleNumber(vehicle.getVehicleNumber())){
-            throw new DuplicateVehicleNumberException(("이미 등록된 차량번호입니다.."));
+        if (vehicleRepository.existsByVehicleNumber(vehicle.getVehicleNumber())) {
+            throw new DuplicateVehicleNumberException("이미 등록된 차량번호입니다.");
         }
 
         return vehicleRepository.save(vehicle);
@@ -30,11 +29,14 @@ public class VehicleService {
 
     public Vehicle findById(Long id) {
         return vehicleRepository.findById(id)
-                .orElseThrow(() -> new VehicleNotFoundException("존재하지 않는 차량입니다."));
+                .orElseThrow(() ->
+                        new VehicleNotFoundException("존재하지 않는 차량입니다.")
+                );
     }
 
-    public List<Vehicle> findAll(){
-        return vehicleRepository.findAll();
+    @Transactional(readOnly = true)
+    public Page<Vehicle> findAll(Pageable pageable) {
+        return vehicleRepository.findAll(pageable);
     }
 
     @Transactional
@@ -51,6 +53,4 @@ public class VehicleService {
                         new VehicleNotFoundException("차량을 찾을 수 없습니다.")
                 );
     }
-
-
 }
