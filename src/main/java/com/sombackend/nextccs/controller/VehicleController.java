@@ -6,8 +6,16 @@ import com.sombackend.nextccs.dto.VehicleStatusUpdateRequest;
 import com.sombackend.nextccs.entity.Vehicle;
 import com.sombackend.nextccs.service.VehicleService;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.List;
+
+
+@Tag(
+        name = "Vehicle",
+        description = "차량 등록 및 조회 API"
+)
 
 @RestController
 @RequestMapping("/vehicles")
@@ -19,6 +27,7 @@ public class VehicleController {
         this.vehicleService = vehicleService;
     }
 
+    @Operation(summary = "차량 등록")
     @PostMapping
     public VehicleResponse create(@RequestBody VehicleCreateRequest request) {
 
@@ -36,6 +45,7 @@ public class VehicleController {
                 savedVehicle.getStatus());
     }
 
+    @Operation(summary = "차량 단건 조회")
     @GetMapping("/{id}")
     public VehicleResponse findById(@PathVariable Long id){
         Vehicle vehicle = vehicleService.findById(id);
@@ -48,6 +58,7 @@ public class VehicleController {
         );
     }
 
+    @Operation(summary = "전체 차량 조회")
     @GetMapping
     public List<VehicleResponse> findAll(){
         return vehicleService.findAll().stream()
