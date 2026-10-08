@@ -452,3 +452,82 @@ Index range scan
 ```text
 docs/learning/12_Database_Index_Performance.md
 ```
+
+
+## 2026-10-07 - 차량별 기간 예약 조회 API 구현
+
+### 구현 목적
+
+기존에 구현한 예약 생성 API에 이어 차량별 예약 이력을 기간 단위로 조회하는 기능을 추가했다.
+
+앞서 성능 최적화한 `(vehicle_id, start_time)` 복합 인덱스의 조회 조건을 실제 Spring Boot API에 적용했다.
+
+### API 명세
+
+```http
+GET /reservations?vehicleId=20006&startTime=2020-01-01T00:00:00&endTime=2020-02-01T00:00:00
+```
+
+요청 파라미터:
+- vehicleId: 조회할 차량 ID
+- startTime: 조회 시작 시간
+- endTime: 조회 종료 시간
+
+응답: `List<ReservationResponse>`
+
+### 구현 내용
+
+- ReservationController에 GET /reservations 추가
+- ReservationService에 조회 전용 메서드 추가
+- @Transactional(readOnly = true) 적용
+- ReservationRepository에 차량 ID 및 기간 조건 조회 메서드 추가
+- Entity를 ReservationResponse DTO로 변환하여 반환
+
+### 조회 조건
+
+```sql
+WHERE vehicle_id = ?
+  AND start_time >= ?
+  AND start_time < ?
+```
+
+조회 기간은 `[startTime, endTime)` 형태의 반개방 구간으로 처리한다.
+
+이를 통해 인접한 기간을 연속 조회할 때 경계 시점이 중복되는 문제를 방지한다.
+
+이 조회는 예약의 시작 시간이 지정된 기간에 포함되는지를 기준으로 하며, 조회 기간과 일부만 겹치는 예약을 모두 검색하는 기능은 아니다.
+
+### Postman 검증
+
+정상 조회:
+
+- HTTP 200 OK
+- 차량 ID 20006의 예약 목록 반환 확인
+
+잘못된 조회 기간:
+
+- HTTP 400 Bad Request
+- 오류 메시지: 조회 시작 시간은 종료 시간보다 빨라야 합니다.
+
+### 자동 테스트
+
+ReservationQueryTest.java 추가
+
+검증 항목:
+
+1. 생성한 예약이 차량별 기간 조회 결과에 포함되는지 확인
+2. 조회 시작 시간이 종료 시간보다 늦으면 InvalidReservationTimeException 발생 확인
+
+전체 Gradle 테스트:
+
+```text
+BUILD SUCCESSFUL
+```
+
+### 결과
+
+차량별 예약 생성 및 기간 조회 API 구현 완료.
+
+기존 복합 인덱스의 조회 패턴을 실제 API에 연결하고 정상 응답, 예외 처리, 자동 테스트까지 검증했다.
+
+향후 Swagger UI를 도입하여 API 문서를 제공하고 브라우저에서 직접 테스트할 수 있도록 개선할 예정이다.

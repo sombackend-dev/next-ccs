@@ -15,7 +15,7 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             LocalDateTime startTime
     );
 
-    List<Reservation> findByVehicleIdAndStartTimeBetween(
+    List<Reservation> findByVehicleIdAndStartTimeGreaterThanEqualAndStartTimeLessThan(
             Long vehicleId,
             LocalDateTime startTime,
             LocalDateTime endTime

@@ -8,6 +8,9 @@ import com.sombackend.nextccs.repository.ReservationRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 @Service
 public class ReservationService {
 
@@ -25,28 +28,29 @@ public class ReservationService {
     @Transactional
     public Reservation create(
             Long vehicleId,
-            java.time.LocalDateTime startTime,
-            java.time.LocalDateTime endTime
+            LocalDateTime startTime,
+            LocalDateTime endTime
     ) {
-        if(!startTime.isBefore(endTime)){
+        if (!startTime.isBefore(endTime)) {
             throw new InvalidReservationTimeException(
                     "예약 시작 시간은 종료 시간보다 빨라야 합니다."
-                    );
+            );
         }
+
         Vehicle vehicle = vehicleService.findByIdForUpdate(vehicleId);
 
         boolean exists = reservationRepository
                 .existsByVehicleAndStartTimeLessThanAndEndTimeGreaterThan(
-                        vehicle, endTime, startTime
+                        vehicle,
+                        endTime,
+                        startTime
                 );
 
-        if(exists){
+        if (exists) {
             throw new ReservationConflictException(
                     "해당 시간에 이미 예약된 차량입니다."
             );
         }
-
-
 
         Reservation reservation = new Reservation(
                 vehicle,
@@ -55,5 +59,25 @@ public class ReservationService {
         );
 
         return reservationRepository.save(reservation);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Reservation> findByVehicleAndPeriod(
+            Long vehicleId,
+            LocalDateTime startTime,
+            LocalDateTime endTime
+    ) {
+        if (!startTime.isBefore(endTime)) {
+            throw new InvalidReservationTimeException(
+                    "조회 시작 시간은 종료 시간보다 빨라야 합니다."
+            );
+        }
+
+        return reservationRepository
+                .findByVehicleIdAndStartTimeGreaterThanEqualAndStartTimeLessThan(
+                        vehicleId,
+                        startTime,
+                        endTime
+                );
     }
 }
