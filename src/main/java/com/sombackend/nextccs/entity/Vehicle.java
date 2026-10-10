@@ -16,6 +16,7 @@ public class Vehicle {
     private String modelName;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private VehicleStatus status;
 
     protected Vehicle() {
@@ -44,7 +45,10 @@ public class Vehicle {
         return status;
     }
 
-    public void changeStatus(VehicleStatus status){
+    public void changeStatus(VehicleStatus status) {
+        if (status == null) {
+            throw new IllegalArgumentException("차량 상태는 필수입니다.");
+        }
         this.status = status;
     }
 

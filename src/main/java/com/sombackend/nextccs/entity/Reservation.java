@@ -21,11 +21,14 @@ public class Reservation {
     @ManyToOne@JoinColumn(name = "vehicle_id", nullable = false)
     private Vehicle vehicle;
 
+    @Column(nullable = false)
     private LocalDateTime startTime;
 
+    @Column(nullable = false)
     private LocalDateTime endTime;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private ReservationStatus status;
 
     protected Reservation(){
