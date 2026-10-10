@@ -14,6 +14,10 @@ import java.util.List;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ResponseStatus;
+
 
 @Tag(
         name = "Reservation",
@@ -34,14 +38,15 @@ public class ReservationController {
             description = "예약 시간이 유효한지 검증하고, 차량에 비관적 락을 적용하여 동시 예약 충돌을 방지합니다."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "예약 생성 성공"),
+            @ApiResponse(responseCode = "201", description = "예약 생성 성공"),
             @ApiResponse(responseCode = "400", description = "예약 시간 오류"),
             @ApiResponse(responseCode = "404", description = "차량을 찾을 수 없음"),
             @ApiResponse(responseCode = "409", description = "예약 시간 충돌")
     })
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     public ReservationResponse create(
-            @RequestBody ReservationCreateRequest request
+            @Valid @RequestBody ReservationCreateRequest request
     ) {
         Reservation reservation = reservationService.create(
                 request.getVehicleId(),

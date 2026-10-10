@@ -31,7 +31,8 @@ public class ReservationService {
             LocalDateTime startTime,
             LocalDateTime endTime
     ) {
-        if (!startTime.isBefore(endTime)) {
+        if (startTime == null || endTime == null ||
+                !startTime.isBefore(endTime)) {
             throw new InvalidReservationTimeException(
                     "예약 시작 시간은 종료 시간보다 빨라야 합니다."
             );
@@ -67,7 +68,8 @@ public class ReservationService {
             LocalDateTime startTime,
             LocalDateTime endTime
     ) {
-        if (!startTime.isBefore(endTime)) {
+        if(startTime == null || endTime == null ||
+                !startTime.isBefore(endTime)) {
             throw new InvalidReservationTimeException(
                     "조회 시작 시간은 종료 시간보다 빨라야 합니다."
             );
