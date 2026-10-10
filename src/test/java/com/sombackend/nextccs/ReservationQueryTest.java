@@ -14,8 +14,13 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
+
 
 @SpringBootTest
+@ActiveProfiles("test")
+@Transactional
 class ReservationQueryTest {
 
     @Autowired
@@ -74,6 +79,75 @@ class ReservationQueryTest {
                         startTime,
                         endTime
                 )
+        );
+    }
+
+    @Test
+    void 예약_조회_시작시간은_포함하고_종료시간은_제외한다() {
+
+        // given
+        Vehicle vehicle = vehicleRepository.save(
+                new Vehicle(
+                        "BOUNDARY-" + UUID.randomUUID(),
+                        "Boundary Test Vehicle"
+                )
+        );
+
+        Long vehicleId = vehicle.getId();
+
+        LocalDateTime queryStart =
+                LocalDateTime.of(2031, 1, 10, 10, 0);
+
+        LocalDateTime queryEnd =
+                LocalDateTime.of(2031, 1, 10, 12, 0);
+
+        // 조회 시작 이전: 제외
+        reservationService.create(
+                vehicleId,
+                LocalDateTime.of(2031, 1, 10, 9, 59),
+                LocalDateTime.of(2031, 1, 10, 10, 0)
+        );
+
+        // 조회 시작과 동일: 포함
+        Reservation atStart = reservationService.create(
+                vehicleId,
+                LocalDateTime.of(2031, 1, 10, 10, 0),
+                LocalDateTime.of(2031, 1, 10, 10, 30)
+        );
+
+        // 조회 종료 이전: 포함
+        Reservation beforeEnd = reservationService.create(
+                vehicleId,
+                LocalDateTime.of(2031, 1, 10, 11, 59),
+                LocalDateTime.of(2031, 1, 10, 12, 0)
+        );
+
+        // 조회 종료와 동일: 제외
+        reservationService.create(
+                vehicleId,
+                LocalDateTime.of(2031, 1, 10, 12, 0),
+                LocalDateTime.of(2031, 1, 10, 13, 0)
+        );
+
+        // when
+        List<Reservation> result =
+                reservationService.findByVehicleAndPeriod(
+                        vehicleId,
+                        queryStart,
+                        queryEnd
+                );
+
+        // then
+        assertEquals(2, result.size());
+
+        assertTrue(
+                result.stream().anyMatch(reservation ->
+                        reservation.getId().equals(atStart.getId()))
+        );
+
+        assertTrue(
+                result.stream().anyMatch(reservation ->
+                        reservation.getId().equals(beforeEnd.getId()))
         );
     }
 }

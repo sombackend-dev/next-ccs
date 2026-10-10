@@ -16,7 +16,7 @@ Next-CCS는 차량 예약 시스템에서 발생할 수 있는 동시성 문제�
 | 예약 조회 성능 | `(vehicle_id, start_time)` 복합 인덱스 적용 | 접근 행 100,000건 → 744건 |
 | 인덱스 실행시간 | 단일 인덱스와 복합 인덱스 비교 | 중앙값 540.700ms → 1.717ms |
 | 차량 목록 조회 | 페이지네이션 적용 | 응답 크기 951,690B → 2,191B |
-| 자동화 테스트 | JUnit 기반 동시성·예약 조회·페이지네이션 검증 | Gradle 테스트 통과 |
+| 자동화 테스트 | 예약 입력 검증·Service 시간 검증·페이지네이션 검증 | JUnit 5 / MockMvc 테스트 통과, 테스트 DB 분리 |
 
 
 인덱스 성능 측정은 특정 차량에 예약 이력 100,000건을 구성한 로컬 MySQL 스트레스 시나리오에서 수행했습니다. 차량 목록 페이지네이션 측정은 차량 10,017대가 저장된 로컬 환경에서 수행했습니다. 각 측정의 조건과 한계는 아래 섹션에 별도로 명시했습니다.
@@ -243,8 +243,15 @@ Spring Data JPA의 `Pageable`을 이용하여 페이지 단위 조회를 구현�
 
 ### 검증
 
-MockMvc 기반 자동화 테스트로 페이지 번호, 페이지 크기, 페이지 메타데이터, 잘못된 요청에 대한 HTTP 400 응답을 검증했습니다.
+MockMvc 기반 테스트를 통해 페이지 번호, 페이지 크기, 페이지 메타데이터, 잘못된 요청에 대한 HTTP 400 응답을 검증했습니다.
 
+추가로 테스트 전용 MySQL DB에 차량 25건을 생성하여 다음 항목을 확인했습니다.
+
+- 첫 번째 페이지에 차량 20건 반환
+- 두 번째 페이지에 차량 5건 반환
+- 전체 데이터 25건 및 전체 페이지 2개 확인
+- 차량 ID 기준 오름차순 정렬 확인
+- 테스트 트랜잭션 롤백을 통한 테스트 데이터 정리
 ---
 
 ## API 명세
@@ -259,6 +266,17 @@ MockMvc 기반 자동화 테스트로 페이지 번호, 페이지 크기, 페이
 | GET | `/reservations` | 차량별 기간 예약 조회 |
 예약 기간 조회 API는 `vehicleId`, `startTime`, `endTime`을 쿼리 파라미터로 받으며, 예약 시작 시간이 `[startTime, endTime)` 범위에 포함되는 예약을 반환합니다.
 
+
+### 예약 생성 응답
+
+| HTTP 상태 코드 | 의미 |
+|---|---|
+| 201 Created | 예약 생성 성공 |
+| 400 Bad Request | 필수 입력값 누락 또는 잘못된 예약 시간 |
+| 404 Not Found | 존재하지 않는 차량 |
+| 409 Conflict | 기존 예약과 시간 충돌 |
+
+예약 생성 요청은 `@Valid`를 이용해 필수 입력값을 검증하며, Service 계층에서도 시작 시간과 종료 시간의 유효성을 확인합니다.
 
 ### 차량 목록 조회 예시
 
@@ -354,6 +372,22 @@ http://localhost:8080/swagger-ui/index.html
 
 ### 5. 테스트 실행
 
+테스트 환경은 개발용 DB(`next_ccs`)와 분리된 MySQL DB(`next_ccs_test`)를 사용합니다.
+
+먼저 MySQL에서 테스트 전용 데이터베이스를 생성합니다.
+
+```sql
+CREATE DATABASE IF NOT EXISTS next_ccs_test
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_0900_ai_ci;
+```
+
+테스트 DB에 접근할 수 있는 MySQL 계정과 `DB_USERNAME`, `DB_PASSWORD` 환경 변수가 필요합니다.
+
+Spring Boot 통합 테스트에는 `@ActiveProfiles("test")`를 적용하고, `src/test/resources/application-test.properties`에서 테스트 전용 DB에 연결하도록 설정했습니다.
+
+테스트 환경의 `spring.jpa.hibernate.ddl-auto=create-drop`은 테스트 스키마를 생성하고 제거하므로, 테스트 DB에는 보존해야 할 데이터를 저장하지 않아야 합니다.
+
 Windows:
 
 ```powershell
@@ -366,7 +400,7 @@ macOS / Linux:
 ./gradlew clean test
 ```
 
-현재 자동화 테스트는 로컬 MySQL 연결이 필요한 구성을 포함하고 있습니다.
+테스트에는 예약 입력 검증, 예약 시간 유효성 검사, 차량 목록 페이지네이션 등이 포함됩니다.
 
 ---
 
@@ -409,10 +443,14 @@ macOS / Linux:
 - [x] Swagger API 문서화
 - [x] DB 접속 정보 환경 변수 분리
 - [x] README 작성
+- [x] 테스트 전용 MySQL DB 구성 및 Spring 테스트 프로필 분리
+- [x] 예약 요청 입력값 검증 및 HTTP 오류 응답 테스트
+- [x] 예약 시간 유효성 검사 단위 테스트
+- [x] 실제 데이터 기반 페이지네이션 결과 및 정렬 검증
+- [x] 차량·예약 필수 컬럼의 DB NOT NULL 제약조건 적용
 
 ### 향후 개선 과제
 
-- [ ] 테스트 전용 DB 구성 및 데이터 격리
 - [ ] DB 스키마 마이그레이션 도구 도입
 - [ ] Docker 기반 실행 환경 구성
 - [ ] Redis 캐싱 및 성능 비교

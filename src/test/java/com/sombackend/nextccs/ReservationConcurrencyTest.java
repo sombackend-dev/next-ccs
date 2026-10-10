@@ -20,8 +20,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.springframework.test.context.ActiveProfiles;
+import com.sombackend.nextccs.repository.ReservationRepository;
+import org.junit.jupiter.api.AfterEach;
 
 @SpringBootTest
+@ActiveProfiles("test")
 class ReservationConcurrencyTest {
 
     @Autowired
@@ -29,6 +33,11 @@ class ReservationConcurrencyTest {
 
     @Autowired
     private VehicleRepository vehicleRepository;
+
+    @Autowired
+    private ReservationRepository reservationRepository;
+
+    private Long testVehicleId;
 
     @Test
     void 동일_차량에_동시에_예약하면_하나만_성공한다() throws InterruptedException {
@@ -41,6 +50,7 @@ class ReservationConcurrencyTest {
         );
 
         Long vehicleId = vehicle.getId();
+        testVehicleId = vehicleId;
 
         LocalDateTime startTime =
                 LocalDateTime.of(2030, 1, 1, 10, 0);
@@ -138,12 +148,22 @@ class ReservationConcurrencyTest {
 
             assertEquals(1, successCount.get());
             assertEquals(9, conflictCount.get());
+            assertEquals(1L, reservationRepository.countByVehicleId(vehicleId));
+
 
         } finally {
 
             // 테스트가 실패하더라도 Thread Pool 종료
             startLatch.countDown();
             executorService.shutdownNow();
+        }
+    }
+
+    @AfterEach
+    void cleanUp() {
+        if (testVehicleId != null) {
+            reservationRepository.deleteByVehicleId(testVehicleId);
+            vehicleRepository.deleteById(testVehicleId);
         }
     }
 }
