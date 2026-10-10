@@ -35,3 +35,6 @@ out/
 # OS
 .DS_Store
 Thumbs.db
+
+# Docker environment variables
+.env
