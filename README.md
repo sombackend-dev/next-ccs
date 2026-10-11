@@ -2,11 +2,11 @@
 
 ### Connected Car Core System
 
-> 동시 예약 환경에서 데이터 정합성을 보장하고, 대용량 예약 데이터의 조회 성능을 개선하는 차량 예약 백엔드 프로젝트
+> 동시 예약 정합성과 대용량 조회 성능을 개선하고, React 대시보드로 차량·예약 관리를 제공하는 풀스택 프로젝트
 
-Next-CCS는 차량 예약 시스템에서 발생할 수 있는 동시성 문제와 대용량 데이터 조회 병목을 직접 재현하고 해결하는 데 집중한 프로젝트입니다.
+Next-CCS는 차량 예약 시스템에서 발생할 수 있는 동시성 문제와 대용량 데이터 조회 병목을 직접 재현하고 해결하는 데 집중한 프로젝트입니다. React 화면에서 차량을 등록·조회하고 예약을 생성·조회할 수 있으며, Spring Boot REST API와 MySQL이 이를 처리합니다.
 
-단순한 CRUD 구현을 넘어, 문제 재현 → 원인 분석 → 기술 선택 → 검증의 과정을 통해 백엔드 시스템의 안정성과 성능을 개선했습니다.
+개발 과정에서는 문제 재현, 원인 분석, 기술 선택, 테스트를 순서대로 진행하고 개선 결과를 기록했습니다.
 
 ## 핵심 성과
 
@@ -17,6 +17,8 @@ Next-CCS는 차량 예약 시스템에서 발생할 수 있는 동시성 문제�
 | 인덱스 실행시간 | 단일 인덱스와 복합 인덱스 비교 | 중앙값 540.700ms → 1.717ms |
 | 차량 목록 조회 | 페이지네이션 적용 | 응답 크기 951,690B → 2,191B |
 | 자동화 테스트 | 동시성·예약 입력값·시간 경계·페이지네이션 검증 | JUnit 5 / MockMvc / Spring Boot Test 통과, 테스트 DB 분리 |
+| 풀스택 연동 | React 대시보드에서 차량·예약 관리 | 등록·조회·중복 예약 거부 브라우저 동작 확인 |
+| 실행 및 CI | Docker Compose / GitHub Actions | 로컬 컨테이너 실행 및 CI 빌드·테스트 확인 |
 
 인덱스 성능 측정은 특정 차량에 예약 이력 100,000건을 구성한 로컬 MySQL 스트레스 시나리오에서 수행했습니다. 차량 목록 페이지네이션 측정은 차량 10,017대가 저장된 로컬 환경에서 수행했습니다. 각 측정의 조건과 한계는 아래 섹션에 별도로 명시했습니다.
 
@@ -28,47 +30,53 @@ Next-CCS는 차량 예약 시스템에서 발생할 수 있는 동시성 문제�
 |---|---|
 | Language | Java 21 |
 | Framework | Spring Boot 4.1.0 |
-| Web | Spring MVC |
+| Backend Web | Spring MVC / REST API |
+| Frontend | React / Vite / JavaScript |
 | ORM | Spring Data JPA / Hibernate |
 | Database | MySQL 8 |
 | API Documentation | Springdoc OpenAPI / Swagger UI |
 | Build | Gradle |
-| Testing | JUnit 5, Spring Boot Test |
+| Testing | JUnit 5, Spring Boot Test, MockMvc |
+| Container | Docker / Docker Compose |
+| CI | GitHub Actions |
 | Version Control | Git / GitHub |
-
-### 향후 확장 예정
-
-- Redis 기반 캐싱 및 성능 비교
-- Kafka 기반 비동기 이벤트 처리
-- Docker 기반 실행 환경 구성
-- 인증 및 권한 관리
-
-위 항목은 현재 구현 완료된 기능이 아닌 향후 개선 계획입니다.
-
----
 
 ## 시스템 아키텍처
 
 ```mermaid
 flowchart TD
-    Client["Client / Postman / Swagger UI"]
-    Controller["Spring MVC Controller"]
-    Service["Service / Transaction"]
-    Repository["Spring Data JPA Repository"]
-    Database[("MySQL")]
+    User["Browser"] --> React["React / Vite"]
+    React -->|"HTTP REST / Vite dev proxy"| Controller["Spring MVC Controller"]
+    API["Postman / Swagger UI"] --> Controller
+    Controller --> Service["Service / Transaction"]
+    Service --> Repository["Spring Data JPA Repository"]
+    Repository --> Database[("MySQL")]
 
-    Client --> Controller
-    Controller --> Service
-    Service --> Repository
-    Repository --> Database
+    subgraph DockerCompose["Docker Compose: backend + MySQL"]
+        Controller
+        Service
+        Repository
+        Database
+    end
 ```
 
 ### 계층별 역할
 
+- React: 차량 등록·목록 및 페이지 이동, 차량별 예약 생성·기간 조회 화면
+- Vite: 로컬 개발 서버 및 `/vehicles`, `/reservations` API 프록시
 - Controller: HTTP 요청 처리 및 DTO 응답
 - Service: 예약 시간 검증, 중복 검사, 트랜잭션 처리
 - Repository: JPA 기반 데이터 접근
 - MySQL: 차량 및 예약 데이터 저장, 비관적 락과 인덱스 활용
+
+---
+
+## 화면 기능 및 사용 시나리오
+
+- **차량 관리:** 차량 번호와 모델명을 입력해 등록하고, 페이지 단위로 차량 목록을 확인합니다.
+- **예약 관리:** 차량과 시작·종료 시간을 선택해 예약을 생성하거나 해당 차량의 기간별 예약을 조회합니다.
+- **충돌 처리:** 이미 예약된 시간에 중복 예약을 시도하면 서버의 `409 Conflict`를 화면에서 안내합니다.
+- **검증 범위:** 브라우저에서 차량 등록·조회, 예약 생성·조회, 중복 예약 거부를 확인했습니다. 동시 요청의 정합성은 별도 멀티스레드 테스트로 검증했습니다.
 
 ---
 
@@ -267,7 +275,7 @@ MockMvc 기반 테스트를 통해 페이지 번호, 페이지 크기, 페이지
 | GET | `/vehicles?page=0&size=20` | 차량 목록 페이지 조회 |
 | PATCH | `/vehicles/{id}/status` | 차량 상태 변경 |
 | POST | `/reservations` | 예약 생성 |
-| GET | `/reservations` | 차량별 기간 예약 조회 |
+| GET | `/reservations?vehicleId=1&startTime=2026-10-01T00:00:00&endTime=2026-11-01T00:00:00` | 차량별 기간 예약 조회 |
 예약 기간 조회 API는 `vehicleId`, `startTime`, `endTime`을 쿼리 파라미터로 받으며, 예약 시작 시간이 `[startTime, endTime)` 범위에 포함되는 예약을 반환합니다.
 
 
@@ -316,9 +324,10 @@ http://localhost:8080/swagger-ui/index.html
 
 ### 사전 요구사항
 
-- JDK 21
-- MySQL 8
 - Git
+- Docker Desktop 및 Docker Compose (컨테이너 실행 시)
+- Node.js / npm (React 개발 서버 실행 시)
+- JDK 21 및 MySQL 8 (백엔드 직접 실행 시)
 
 ### 1. 프로젝트 다운로드
 
@@ -327,7 +336,32 @@ git clone https://github.com/sombackend-dev/next-ccs.git
 cd next-ccs
 ```
 
-### 2. 데이터베이스 생성
+### 2. Docker Compose로 백엔드 및 DB 실행
+
+프로젝트의 Docker Compose 설정 파일을 확인하고, 필요한 데이터베이스 환경 변수를 로컬 `.env`에 설정합니다. 비밀번호와 `.env` 파일은 Git에 커밋하지 않습니다.
+
+```powershell
+docker compose up -d --build
+docker compose ps
+```
+
+백엔드가 준비되면 `http://localhost:8080/swagger-ui/index.html`에서 API 문서를 확인할 수 있습니다. 기존 MySQL 볼륨을 사용하는 경우 설정한 계정 정보가 기존 데이터베이스 계정과 일치해야 합니다.
+
+### 3. React 프론트엔드 실행
+
+별도 터미널에서 실행합니다.
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+브라우저에서 `http://localhost:5173`에 접속합니다. 개발 서버는 `/vehicles` 및 `/reservations` 요청을 로컬 Spring Boot 서버(`localhost:8080`)로 전달합니다.
+
+### 4. 백엔드 직접 실행 (Docker 대신 로컬 MySQL 사용)
+
+#### 데이터베이스 생성
 
 MySQL에서 다음 SQL을 실행합니다.
 
@@ -335,7 +369,7 @@ MySQL에서 다음 SQL을 실행합니다.
 CREATE DATABASE IF NOT EXISTS next_ccs;
 ```
 
-### 3. 환경 변수 설정
+#### 환경 변수 설정
 
 애플리케이션 실행 전에 다음 환경 변수를 등록합니다.
 
@@ -354,9 +388,9 @@ spring.datasource.password=${DB_PASSWORD}
 
 실제 데이터베이스 비밀번호는 소스코드에 저장하지 않습니다.
 
-현재 프로젝트는 로컬 개발 환경에서 Hibernate의 `ddl-auto=update`를 사용합니다. 운영 환경에서는 Flyway 등 별도의 스키마 마이그레이션 도구를 사용하는 방향을 검토하고 있습니다.
+로컬 개발 환경에서는 Hibernate의 `ddl-auto=update`를 사용합니다. DB 스키마 마이그레이션 도구 도입은 향후 개선 과제에 포함했습니다.
 
-### 4. 애플리케이션 실행
+#### 애플리케이션 실행
 
 Windows:
 
@@ -408,6 +442,12 @@ macOS / Linux:
 
 ---
 
+## CI 및 실행 환경
+
+GitHub Actions를 활용해 Gradle 테스트와 `bootJar` 빌드를 자동화했습니다. CI 실행 성공을 확인했으며, Docker Compose로 Spring Boot 애플리케이션과 MySQL 실행 환경을 구성하고 컨테이너 간 연결 및 API 정상 동작을 검증했습니다.
+
+---
+
 ## 개발 기록
 
 프로젝트 구현 과정과 기술적 의사결정은 다음 문서에 기록했습니다.
@@ -447,6 +487,11 @@ macOS / Linux:
 - [x] Swagger API 문서화
 - [x] DB 접속 정보 환경 변수 분리
 - [x] README 작성
+- [x] React 차량 등록·목록·페이지네이션 화면
+- [x] React 차량별 예약 생성·기간 조회 화면
+- [x] 브라우저에서 예약 중복 충돌 메시지 확인
+- [x] Docker Compose 기반 로컬 백엔드·MySQL 실행 확인
+- [x] GitHub Actions 테스트 및 빌드 CI 확인
 - [x] 테스트 전용 MySQL DB 구성 및 Spring 테스트 프로필 분리
 - [x] 예약 요청 입력값 검증 및 HTTP 오류 응답 테스트
 - [x] 예약 시간 유효성 검사 단위 테스트
@@ -459,7 +504,6 @@ macOS / Linux:
 ### 향후 개선 과제
 
 - [ ] DB 스키마 마이그레이션 도구 도입
-- [ ] Docker 기반 실행 환경 구성
 - [ ] Redis 캐싱 및 성능 비교
 - [ ] Kafka 기반 비동기 이벤트 처리
 - [ ] 인증 및 권한 관리
@@ -488,6 +532,4 @@ macOS / Linux:
 
 ### 4. 성능 개선 결과는 측정 조건과 함께 설명해야 한다
 
-단일 측정값이나 특정 스트레스 환경의 결과를 모든 운영 환경에 일반화할 수는 없습니다.
-
-실행계획, 접근 행 수, 응답 크기, 측정 환경을 함께 기록하여 개선 효과와 한계를 구분했습니다.
+실행계획, 접근 행 수, 응답 크기와 측정 조건을 함께 기록해 개선 효과를 비교했습니다.
