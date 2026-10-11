@@ -82,6 +82,10 @@ flowchart TD
 
 ## 주요 기능
 
+### 실행 화면
+
+![Next-CCS 차량 및 예약 관리 대시보드](docs/dashboard.png)
+
 ### 1. 차량 관리
 
 - 차량 등록
